@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vue 3 Text File Reader/Writer</title>
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ramda@0.30.0/dist/ramda.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              clifford: '#da373d',
+            }
+          }
+        }
+      }
+    </script>
+</head>
+<body>
+    <div id="app">
+        <div class="flex justify-center mb-1">
+            <h1 class="text-3xl font-bold text-emerald-600 block">
+                請先載入題庫
+            </h1>
+        </div>
+        <div class="flex justify-center mb-11">
+            <h2 class="text-lg font-bold text-orange-400 block">安全性問題，ＪＳ不能控制本地資料，可以「載入」、「下載」。</h2>
+        </div>
+        <!-- txt to json -->
+        <!-- 讀取本地檔案 -->
+        <div class="flex justify-center mb-4">
+            <!-- ex. 
+            1.不會掉鐮戟:巴風特
+            2.不是不死屬性: -->
+            <div>
+                <div> txt file: </div>
+                <div>
+                    <input type="file" @change="handleTxtFileUpload" accept=".txt" />
+                </div>
+            </div>
+            <div>
+                <div> json file: </div>
+                <div>
+                    <input type="file" @change="handleJsonFileUpload" accept=".json" />
+                </div>
+            </div>
+        </div>
+        <div class="m-auto mb-3 text-xl w-[700px]">
+            <span>結果: </span>
+            <span v-if="isUpload" class="text-violet-600">上傳成功</span>
+        </div>
+
+        <div class="flex justify-center mb-11">
+            <input type="text" class="border-2 h-[100px] w-[700px] text-6xl" v-model="keyword" ref="inputBox"  @focus="clear" @click="clear">
+        </div>
+        <div class="m-auto mb-11 text-xl w-[700px]">
+            <div v-for="(row, index) in searchResult" class="mb-1">
+                <div>編號(自用)： {{row.id}}</div>
+                <div>題目： {{row.question}}</div>
+                <div class="mb-2">答案： {{row.answer}}</div>
+                <hr class="mb-2">
+            </div>
+        </div>
+
+        <!-- 下載編輯後的檔案 -->
+        <div class="m-auto mb-11 text-xl w-[700px]">
+            <button @click="downloadTxtFile">下載 txt 檔案</button>
+            <button class="ml-4" @click="downloadJsonFile">下載 JSON 檔案</button>
+        </div>
+
+        <!-- 新增 -->
+        <div class="m-auto mb-11 text-md w-[700px]">
+            <div class="mt-2">
+                <div class="flex rounded-md shadow-sm ring-1 ring-inset ring-gray-300 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-600 sm:max-w-md">
+                  <span class="flex select-none items-center pl-3 text-gray-500 sm:text-sm">題目/</span>
+                  <input type="text" name="question" v-model="newQuestion" class="block flex-1 border-0 bg-transparent py-1.5 pl-1 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm sm:leading-6" placeholder="月亮會什麼會圓圓的?">
+                </div>
+            </div>
+            <div class="mt-2">
+                <div class="flex rounded-md shadow-sm ring-1 ring-inset ring-gray-300 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-600 sm:max-w-md">
+                  <span class="flex select-none items-center pl-3 text-gray-500 sm:text-sm">答案/</span>
+                  <input type="text" name="answer" v-model="newAnswer" class="block flex-1 border-0 bg-transparent py-1.5 pl-1 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm sm:leading-6" placeholder="沒有為什麼">
+                </div>
+            </div>
+            <div class="mt-2">
+                <button type="submit" @click="addNew" class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">新增</button>
+                <span class="ml-2 text-orange-400"> 基於安全性問題，無法直接儲存，新增完畢後，請記得下載保存檔案。 </span>
+            </div>
+        </div>
+      
+    </div>
+
+    <script>
+        const formatToTxt = (data) => {
+            return R.join('\r\n', R.map(x=> {
+                                return `${x.id}.${x.question}:${x.answer}`
+                            }, data));
+        }
+        const formatContent = (data) => {
+            return R.map(x => {
+                return {
+                    id: x.id,
+                    question: x.question,
+                    answer: x.answer,
+                    content: `${x.question}:${x.answer}`
+                }
+            })(data);
+        }
+        const App = {
+            data() {
+                return {
+                    fileContent: '',  // 儲存檔案內容
+                    formatedContent: [],
+                    fileRows: [],
+                    keyword:'',
+                    filteredItems:[],
+                    isUpload: false,
+                    // new
+                    newQuestion: '',
+                    newAnswer: '',
+                };
+            },
+            computed: {
+                searchResult() {
+                    const query = this.keyword.toLowerCase();
+                    if (R.isEmpty(query)) return '';
+                    const filtered = R.filter(item => {
+                        return item.content.toLowerCase().includes(query);
+                    })(this.formatedContent);
+                    return filtered;
+                },
+            },
+            methods: {
+                clear() {
+                    this.keyword = '';
+                },
+                generateId() {
+                    var d = Date.now();
+                    if (typeof performance !== 'undefined' && typeof performance.now === 'function'){
+                        d += performance.now(); //use high-precision timer if available
+                    }
+                    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+                        var r = (d + Math.random() * 16) % 16 | 0;
+                        d = Math.floor(d / 16);
+                        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+                    });
+                },
+                addNew() {
+                    console.log(this.generateId());
+                    console.log(this.newQuestion, this.newAnswer);
+                    this.formatedContent.push({
+                        id: this.generateId(),
+                        question: this.newQuestion,
+                        answer: this.newAnswer,
+                        content: `${this.newQuestion}:${this.newAnswer}`
+                    });
+                    this.fileContent = formatToTxt(this.formatedContent);
+                },
+                convertTxtToJsonFormat(data) {
+                    this.fileRows = R.filter(x => {
+                        if (!x) return false;
+                        return x !== "";
+                    }, R.split('\r\n', data));
+
+                    this.formatedContent = R.map(row => {
+                        const id = R.split('.')(row)[0];
+                        const content = R.split('.')(row)[1];
+                        const q = R.split(':')(content)[0];
+                        const a = R.split(':')(content)[1];
+                        return {
+                            id,
+                            content,
+                            question: q,
+                            answer: a,
+                        }
+                    })(this.fileRows);
+                },
+                // 處理檔案上傳
+                handleTxtFileUpload(event) {
+                    this.isUpload = false;
+                    const file = event.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            this.convertTxtToJsonFormat(e.target.result);
+                            this.fileContent = e.target.result;
+                            this.isUpload = true;
+                        };
+                        reader.readAsText(file);
+                    }
+                },
+                handleJsonFileUpload(event) {
+                    this.isUpload = false;
+                    const file = event.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                        try {
+                            this.formatedContent = JSON.parse(e.target.result);
+                            this.fileContent = formatToTxt(this.formatedContent);
+                            this.isUpload = true;
+                        } catch (error) {
+                            alert('Invalid JSON file');
+                        }
+                        };
+                        reader.readAsText(file);
+                    }
+                },
+                // 下載編輯後的檔案
+                downloadTxtFile() {
+                    const blob = new Blob([this.fileContent], { type: 'text/plain' });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = 'edited-file.txt';
+                    link.click();
+                    URL.revokeObjectURL(link.href);  // 釋放URL
+                },
+                downloadJsonFile() {
+                    const blob = new Blob([JSON.stringify(this.formatedContent)], { type: 'application/json' });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = 'edited_data.json';
+                    link.click();
+                }
+            }
+        };
+
+        Vue.createApp(App).mount('#app');
+    </script>
+</body>
+</html>
