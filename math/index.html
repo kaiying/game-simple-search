@@ -1,0 +1,90 @@
+<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/ramda@0.30.0/dist/ramda.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          clifford: '#da373d',
+        }
+      }
+    }
+  }
+</script>
+
+<div id="app">
+    <div class="flex justify-center mb-11">
+         <hr>
+    </div>
+    <div class="flex justify-center mb-11">
+        <h1 class="text-3xl font-bold text-black">
+            {{message}}
+        </h1>
+    </div>
+    <div class="flex justify-center mb-11">
+        <input type="text" class="border-2 h-[200px] w-[300px] text-6xl" maxlength="6" v-model="inputNumber" ref="inputBox" @focus="kd" @click="kd" placeholder="輸入數字 ...">
+    </div>
+    <div class="flex justify-center">
+        <h1 class="text-3xl font-bold text-black">
+            你輸入的: {{inputNumber}}
+        </h1>
+    </div>
+    <div class="flex justify-center">
+        <h1 class="text-3xl font-bold text-clifford">
+            答案: {{result}}
+        </h1>
+    </div>
+
+    <div class="flex justify-center">
+        <h1 class="text-1xl font-bold text-clifford mt-11">
+            (c) 普隆德拉大酒店 燒餅肉排 / 女巫
+        </h1>
+    </div>
+</div>
+
+<script>
+  const { createApp, ref, onMounted, computed } = Vue
+
+  // @keyup.delete="kd"
+  const ts = (i) => {
+    return parseInt(i, 10);
+  }
+  const compute = (a, b, c) => {
+    return ts(a) * ts(b) - ts(c);
+  }
+  const midIsTen = (last) => {
+    return ts(R.splitAt(2, last)[0]) === 10;
+  }
+
+  createApp({
+    setup() {
+      const message = ref('Orange 暑假作業活動')
+      const inputNumber = ref('');
+      let inputBox = ref();
+
+      const result = computed(() => {
+        const first = R.splitAt(2, inputNumber.value)[0];
+        const last = R.splitAt(2, inputNumber.value)[1];
+
+        if (R.length(last) === 4 || midIsTen(last)) {
+            return  compute(first, R.splitAt(2, last)[0], R.splitAt(2, last)[1]);
+        }
+
+        return  compute(first, R.splitAt(1, last)[0], R.splitAt(1, last)[1]);
+      });
+      const kd = (e) => {
+        inputNumber.value = '';
+      }
+      onMounted(() => {
+        })
+
+      return {
+        message,
+        inputNumber,
+        result,
+        kd,
+      }
+    }
+  }).mount('#app')
+</script>
